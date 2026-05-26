@@ -5,9 +5,7 @@ plugins {
 
 android {
     namespace = "br.com.sd.pixelhubandroid"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "br.com.sd.pixelhubandroid"
@@ -40,6 +38,9 @@ android {
 dependencies {
     val nav_version = "2.9.8"
 
+
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("androidx.navigation:navigation-compose:$nav_version")
     implementation("androidx.lifecycle:lifecycle-viewmodel:2.10.0")
     implementation(libs.androidx.core.ktx)

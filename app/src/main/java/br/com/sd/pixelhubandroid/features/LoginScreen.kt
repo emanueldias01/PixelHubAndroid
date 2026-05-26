@@ -10,14 +10,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import br.com.sd.pixelhubandroid.ui.theme.PixelHubAndroidTheme
+import br.com.sd.pixelhubandroid.viewmodels.LoginViewModel
 
 @Composable
-fun LoginScreen(controller: NavHostController) {
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+fun LoginScreen(
+    controller: NavHostController,
+    viewModel: LoginViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(uiState.isLoggedIn) {
+        if (uiState.isLoggedIn) {
+            controller.navigate("board") {
+                popUpTo("login") { inclusive = true }
+            }
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -69,26 +81,43 @@ fun LoginScreen(controller: NavHostController) {
                     Spacer(modifier = Modifier.height(24.dp))
 
                     OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
+                        value = uiState.username,
+                        onValueChange = { viewModel.changeUsername(it) },
                         label = { Text("Username") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                        singleLine = true,
+                        isError = uiState.errorMessage != null
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    uiState.errorMessage?.let {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     Button(
-                        onClick = { controller.navigate("board") },
+                        onClick = { viewModel.login() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = !uiState.isLoading
                     ) {
-                        Text("Entrar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Entrar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
