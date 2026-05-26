@@ -1,4 +1,4 @@
-package br.com.sd.pixelhubandroid.feature
+package br.com.sd.pixelhubandroid.features
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,15 +10,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import br.com.sd.pixelhubandroid.ui.theme.PixelHubAndroidTheme
 
 @Composable
-fun LoginScreen(modifier: Modifier = Modifier) {
+fun LoginScreen(controller: NavHostController) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
@@ -44,7 +46,6 @@ fun LoginScreen(modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // Card de Login
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
@@ -81,7 +82,7 @@ fun LoginScreen(modifier: Modifier = Modifier) {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Button(
-                        onClick = { /* TODO: Lógica de Login */ },
+                        onClick = { controller.navigate("board") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -102,6 +103,6 @@ fun LoginScreen(modifier: Modifier = Modifier) {
 @Composable
 private fun LoginScreenPreview() {
     PixelHubAndroidTheme {
-        LoginScreen()
+        LoginScreen(rememberNavController())
     }
 }
