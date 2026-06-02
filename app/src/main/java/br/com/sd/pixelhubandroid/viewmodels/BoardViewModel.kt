@@ -28,7 +28,7 @@ class BoardViewModel : ViewModel() {
     fun connect(username: String) {
         currentUser = username
         val request = Request.Builder()
-            .url("ws://10.0.2.2:8000/ws")
+            .url("ws://10.0.2.2:8080/ws")
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {

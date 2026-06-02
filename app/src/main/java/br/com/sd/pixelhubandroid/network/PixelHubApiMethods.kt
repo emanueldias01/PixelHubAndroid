@@ -7,10 +7,10 @@ import retrofit2.http.POST
 
 interface PixelHubApiMethods {
 
-    @POST("login")
+    @POST("auth/login")
     suspend fun login(@Body loginRequest: AuthData): LoginResponse
 
-    @POST("logout")
+    @POST("auth/logout")
     suspend fun logout(@Body logoutRequest: AuthData): LoginResponse
 
 }
