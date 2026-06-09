@@ -18,17 +18,26 @@ class LoginViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(username = newValue, errorMessage = null)
     }
 
+    fun changeServerIp(newValue: String) {
+        _uiState.value = _uiState.value.copy(serverIp = newValue, errorMessage = null)
+    }
+
     fun login() {
         val username = _uiState.value.username
+        val serverIp = _uiState.value.serverIp
         if (username.isBlank()) {
             _uiState.value = _uiState.value.copy(errorMessage = "Username cannot be empty")
+            return
+        }
+        if (serverIp.isBlank()) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Server IP cannot be empty")
             return
         }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
-                val response = PixelHubApi.retrofitService.login(AuthData(username))
+                val response = PixelHubApi.getRetrofitService(serverIp).login(AuthData(username))
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     isLoggedIn = true,
@@ -45,10 +54,11 @@ class LoginViewModel : ViewModel() {
 
     fun logout() {
         val username = _uiState.value.username
+        val serverIp = _uiState.value.serverIp
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
-                PixelHubApi.retrofitService.logout(AuthData(username))
+                PixelHubApi.getRetrofitService(serverIp).logout(AuthData(username))
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     isLoggedIn = false,

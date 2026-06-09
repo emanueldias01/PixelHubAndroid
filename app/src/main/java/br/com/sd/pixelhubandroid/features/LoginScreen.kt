@@ -90,6 +90,18 @@ fun LoginScreen(
                         isError = uiState.errorMessage != null
                     )
 
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = uiState.serverIp,
+                        onValueChange = { viewModel.changeServerIp(it) },
+                        label = { Text("Server IP") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        isError = uiState.errorMessage != null
+                    )
+
                     uiState.errorMessage?.let {
                         Text(
                             text = it,

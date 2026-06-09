@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (loginViewModel.uiState.value.isLoggedIn) {
+        if (isFinishing && loginViewModel.uiState.value.isLoggedIn) {
             loginViewModel.logout()
         }
         super.onDestroy()

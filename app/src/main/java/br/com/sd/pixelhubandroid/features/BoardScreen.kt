@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -50,12 +51,14 @@ fun BoardScreen(
     val boardState by boardViewModel.uiState.collectAsState()
 
     // Pan and Zoom state
-    var scale by remember { mutableFloatStateOf(1f) }
-    var panOffset by remember { mutableStateOf(Offset.Zero) }
+    var scale by rememberSaveable { mutableFloatStateOf(1f) }
+    var panX by rememberSaveable { mutableFloatStateOf(0f) }
+    var panY by rememberSaveable { mutableFloatStateOf(0f) }
+    val panOffset = Offset(panX, panY)
 
-    LaunchedEffect(loginState.username) {
-        if (loginState.username.isNotEmpty()) {
-            boardViewModel.connect(loginState.username)
+    LaunchedEffect(loginState.username, loginState.serverIp) {
+        if (loginState.username.isNotEmpty() && loginState.serverIp.isNotEmpty()) {
+            boardViewModel.connect(loginState.username, loginState.serverIp)
         }
     }
 
@@ -156,7 +159,8 @@ fun BoardScreen(
                                 DrawingTool.PAN -> {
                                     detectTransformGestures { _, pan, zoom, _ ->
                                         scale = (scale * zoom).coerceIn(0.5f, 50f)
-                                        panOffset += pan
+                                        panX += pan.x
+                                        panY += pan.y
                                     }
                                 }
                                 DrawingTool.PENCIL, DrawingTool.ERASER -> {
@@ -187,20 +191,8 @@ fun BoardScreen(
                             }
                         }
                 ) {
-                    // Draw the static board from the optimized Bitmap
                     boardBitmap?.let {
                         drawImage(it)
-                    }
-
-                    // Render temporary lines on top
-                    boardState.lines.forEach { line ->
-                        drawLine(
-                            color = line.color,
-                            start = androidx.compose.ui.geometry.Offset(line.start.x, line.start.y),
-                            end = androidx.compose.ui.geometry.Offset(line.end.x, line.end.y),
-                            strokeWidth = line.strokeWidth,
-                            cap = StrokeCap.Round
-                        )
                     }
                 }
             }

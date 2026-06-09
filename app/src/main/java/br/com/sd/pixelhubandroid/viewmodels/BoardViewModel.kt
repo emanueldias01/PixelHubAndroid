@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import okhttp3.*
+import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 class BoardViewModel : ViewModel() {
@@ -24,11 +26,20 @@ class BoardViewModel : ViewModel() {
     private val client = OkHttpClient()
 
     private var currentUser: String = ""
+    private var currentIp: String = ""
 
-    fun connect(username: String) {
+    fun connect(username: String, serverIp: String) {
+        if (_uiState.value.isConnected && currentUser == username && currentIp == serverIp) {
+            return
+        }
+
         currentUser = username
+        currentIp = serverIp
+
+        webSocket?.close(1000, "Reconnecting")
+
         val request = Request.Builder()
-            .url("ws://10.0.2.2:8080/ws")
+            .url("ws://$serverIp:8080/ws")
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
@@ -44,22 +55,26 @@ class BoardViewModel : ViewModel() {
                     when (type) {
                         "draw" -> {
                             val message = gson.fromJson(text, DrawMessage::class.java)
-                            val newLine = Line(
-                                start = message.start,
-                                end = message.end,
-                                color = Color(android.graphics.Color.parseColor(message.color)),
-                                strokeWidth = message.lineWidth
-                            )
                             _uiState.update { state ->
+                                val newPixels = state.boardPixels?.copyOf()
+                                if (newPixels != null) {
+                                    applyDrawToPixels(
+                                        newPixels,
+                                        state.boardWidth,
+                                        state.boardHeight,
+                                        message
+                                    )
+                                }
                                 state.copy(
-                                    lines = state.lines + newLine,
+                                    boardPixels = newPixels ?: state.boardPixels,
                                     activeUsers = state.activeUsers + message.user
                                 )
                             }
                         }
+
                         "board" -> {
                             val message = gson.fromJson(text, BoardMessage::class.java)
-                            val pixels = message.art.map { 
+                            val pixels = message.art.map {
                                 try {
                                     android.graphics.Color.parseColor(it)
                                 } catch (e: Exception) {
@@ -74,6 +89,9 @@ class BoardViewModel : ViewModel() {
                                     lines = emptyList()
                                 )
                             }
+                        }
+
+                        "users" -> {
                         }
                     }
                 } catch (e: Exception) {
@@ -101,10 +119,10 @@ class BoardViewModel : ViewModel() {
 
     fun sendDrawAction(start: PointData, end: PointData, color: Color, width: Float) {
         val colorHex = String.format("#%06X", (0xFFFFFF and color.toArgb()))
-        
+
         val startInt = PointData(start.x.roundToInt().toFloat(), start.y.roundToInt().toFloat())
         val endInt = PointData(end.x.roundToInt().toFloat(), end.y.roundToInt().toFloat())
-        
+
         val message = DrawMessage(
             type = "draw",
             user = currentUser,
@@ -113,24 +131,82 @@ class BoardViewModel : ViewModel() {
             color = colorHex,
             lineWidth = width
         )
-        
-        val newLine = Line(startInt, endInt, color, width)
-        _uiState.update { it.copy(lines = it.lines + newLine) }
+
+        _uiState.update { state ->
+            val newPixels = state.boardPixels?.copyOf()
+            if (newPixels != null) {
+                applyDrawToPixels(newPixels, state.boardWidth, state.boardHeight, message)
+            }
+            state.copy(boardPixels = newPixels ?: state.boardPixels)
+        }
 
         webSocket?.send(gson.toJson(message))
     }
 
     fun sendBucketAction(point: PointData) {
         val colorHex = String.format("#%06X", (0xFFFFFF and _uiState.value.selectedColor.toArgb()))
-        
+
         val pointInt = PointData(point.x.roundToInt().toFloat(), point.y.roundToInt().toFloat())
-        
+
         val message = BucketMessage(
             user = currentUser,
             start = pointInt,
             color = colorHex
         )
         webSocket?.send(gson.toJson(message))
+    }
+
+    private fun applyDrawToPixels(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        msg: DrawMessage
+    ) {
+        val color = try {
+            android.graphics.Color.parseColor(msg.color)
+        } catch (e: Exception) {
+            android.graphics.Color.BLACK
+        }
+
+        val points = getLinePoints(
+            msg.start.x.roundToInt(), msg.start.y.roundToInt(),
+            msg.end.x.roundToInt(), msg.end.y.roundToInt()
+        )
+
+        val radius = max(0, msg.lineWidth.roundToInt() / 2)
+
+        for ((px, py) in points) {
+            for (dy in -radius..radius) {
+                for (dx in -radius..radius) {
+                    val nx = px + dx
+                    val ny = py + dy
+                    if (nx >= 0 && ny >= 0 && nx < width && ny < height) {
+                        pixels[ny * width + nx] = color
+                    }
+                }
+            }
+        }
+    }
+
+    private fun getLinePoints(x0i: Int, y0i: Int, x1: Int, y1: Int): List<Pair<Int, Int>> {
+        var x0 = x0i
+        var y0 = y0i
+        val points = mutableListOf<Pair<Int, Int>>()
+
+        val dx = abs(x1 - x0)
+        val dy = abs(y1 - y0)
+        val sx = if (x0 < x1) 1 else -1
+        val sy = if (y0 < y1) 1 else -1
+        var err = dx - dy
+
+        while (true) {
+            points.add(Pair(x0, y0))
+            if (x0 == x1 && y0 == y1) break
+            val e2 = 2 * err
+            if (e2 > -dy) { err -= dy; x0 += sx }
+            if (e2 < dx)  { err += dx; y0 += sy }
+        }
+        return points
     }
 
     override fun onCleared() {
