@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -50,7 +51,6 @@ fun BoardScreen(
     val loginState by loginViewModel.uiState.collectAsState()
     val boardState by boardViewModel.uiState.collectAsState()
 
-    // Pan and Zoom state
     var scale by rememberSaveable { mutableFloatStateOf(1f) }
     var panX by rememberSaveable { mutableFloatStateOf(0f) }
     var panY by rememberSaveable { mutableFloatStateOf(0f) }
@@ -70,7 +70,6 @@ fun BoardScreen(
         }
     }
 
-    // Optimization to avoid ANR: Render the full board into a Bitmap only when pixels change.
     val boardBitmap = remember(boardState.boardPixels, boardState.boardWidth, boardState.boardHeight) {
         boardState.boardPixels?.let { pixels ->
             if (pixels.isEmpty()) return@let null
@@ -142,34 +141,40 @@ fun BoardScreen(
                     .padding(16.dp)
                     .background(Color.LightGray, shape = MaterialTheme.shapes.medium)
                     .border(1.dp, Color.Gray, shape = MaterialTheme.shapes.medium)
-                    .clipToBounds() // Keep drawing inside the board area when zooming/panning
+                    .clipToBounds()
             ) {
+                val density = LocalDensity.current
+                val boardWidthDp = with(density) { boardState.boardWidth.toDp() }
+                val boardHeightDp = with(density) { boardState.boardHeight.toDp() }
+
                 Canvas(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .size(boardWidthDp, boardHeightDp)
+                        .align(Alignment.Center)
                         .background(Color.White)
+                        .pointerInput(boardState.selectedTool) {
+                            if (boardState.selectedTool == DrawingTool.PAN) {
+                                detectTransformGestures { _, pan, zoom, _ ->
+                                    scale = (scale * zoom).coerceIn(0.5f, 50f)
+                                    panX += pan.x
+                                    panY += pan.y
+                                }
+                            }
+                        }
                         .graphicsLayer(
                             scaleX = scale,
                             scaleY = scale,
                             translationX = panOffset.x,
                             translationY = panOffset.y
                         )
-                        .pointerInput(boardState.selectedTool, scale, panOffset) {
+                        .pointerInput(boardState.selectedTool) {
                             when (boardState.selectedTool) {
-                                DrawingTool.PAN -> {
-                                    detectTransformGestures { _, pan, zoom, _ ->
-                                        scale = (scale * zoom).coerceIn(0.5f, 50f)
-                                        panX += pan.x
-                                        panY += pan.y
-                                    }
-                                }
                                 DrawingTool.PENCIL, DrawingTool.ERASER -> {
                                     detectDragGestures { change, dragAmount ->
                                         change.consume()
                                         
-                                        // Transform screen coordinates to board coordinates
-                                        val start = (change.position - dragAmount - panOffset) / scale
-                                        val end = (change.position - panOffset) / scale
+                                        val start = change.position - dragAmount
+                                        val end = change.position
                                         
                                         val color = if (boardState.selectedTool == DrawingTool.ERASER) Color.White else boardState.selectedColor
                                         val width = if (boardState.selectedTool == DrawingTool.ERASER) 20f else 5f
@@ -178,16 +183,16 @@ fun BoardScreen(
                                             start = PointData(start.x, start.y),
                                             end = PointData(end.x, end.y),
                                             color = color,
-                                            width = width / scale // Maintain consistent visual stroke width
+                                            width = width / scale
                                         )
                                     }
                                 }
                                 DrawingTool.BUCKET -> {
                                     detectTapGestures { tapOffset ->
-                                        val transformedPoint = (tapOffset - panOffset) / scale
-                                        boardViewModel.sendBucketAction(PointData(transformedPoint.x, transformedPoint.y))
+                                        boardViewModel.sendBucketAction(PointData(tapOffset.x, tapOffset.y))
                                     }
                                 }
+                                DrawingTool.PAN -> {}
                             }
                         }
                 ) {
